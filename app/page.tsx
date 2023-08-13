@@ -1,113 +1,251 @@
-import Image from 'next/image'
+"use client";
+import { useEffect, useRef, useState } from "react";
+import useLLM, { OpenAIMessage } from "usellm";
+import lawyer from "@/img/lawyer.png";
+import user from "@/img/user.jpg";
+import Image from "next/image";
 
 export default function Home() {
+  const [status, setStatus] = useState<Status>("idle");
+  const [history, setHistory] = useState<OpenAIMessage[]>([
+    {
+      role: "assistant",
+      content:
+        "Hola soy tu abogado de confianza!, mi nombre es Jarvis, puedes consultarme en todo lo relacionado a la justicia peruana.",
+    },
+  ]);
+  const [inputText, setInputText] = useState("");
+
+  const llm = useLLM({ serviceUrl: "https://usellm.org/api/llm" });
+
+  async function handleSend() {
+    if (!inputText) {
+      return;
+    }
+    try {
+      setStatus("streaming");
+      const newHistory = [...history, { role: "user", content: inputText }];
+      setHistory(newHistory);
+      setInputText("");
+      const { message } = await llm.chat({
+        messages: newHistory,
+        stream: true,
+        onStream: ({ message }) => setHistory([...newHistory, message]),
+      });
+      setHistory([...newHistory, message]);
+      setStatus("idle");
+      handleSpeak(message.content);
+    } catch (error: any) {
+      console.error(error);
+      window.alert("Ha ocurrido un error! " + error.message);
+    }
+  }
+
+  async function handleRecordClick() {
+    try {
+      if (status === "idle") {
+        await llm.record();
+        setStatus("recording");
+      } else if (status === "recording") {
+        setStatus("transcribing");
+        const { audioUrl } = await llm.stopRecording();
+        const { text } = await llm.transcribe({ audioUrl });
+        setStatus("streaming");
+        const newHistory = [...history, { role: "user", content: text }];
+        setHistory(newHistory);
+        const { message } = await llm.chat({
+          messages: newHistory,
+          stream: true,
+          onStream: ({ message }) => setHistory([...newHistory, message]),
+        });
+        setHistory([...newHistory, message]);
+        setStatus("idle");
+        handleSpeak(message.content);
+      }
+    } catch (error: any) {
+      console.error(error);
+      window.alert("Ha ocurrido un error! " + error.message);
+    }
+  }
+
+  const handleSpeak = (content: string) => {
+    if ("speechSynthesis" in window) {
+      const synthesis = window.speechSynthesis;
+      const utterance = new SpeechSynthesisUtterance(content);
+      synthesis.speak(utterance);
+    } else {
+      console.log("Text-to-Speech is not supported in this browser.");
+    }
+  };
+
+  const Icon = status === "recording" ? Square : Mic;
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="p-10 flex items-center justify-center h-screen bg-gray-900">
+      <div className="p-10 flex flex-col w-full h-full overflow-y-hidden bg-red-500 rounded-2xl gap-10">
+        <ChatMessages messages={history} />
+        <div className="w-full flex">
+          <ChatInput
+            placeholder={getInputPlaceholder(status)}
+            text={inputText}
+            setText={setInputText}
+            sendMessage={handleSend}
+            disabled={status !== "idle"}
+          />
+          <button
+            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium ml-2"
+            onClick={handleSend}
           >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            Send
+          </button>
+          <button
+            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium ml-2"
+            onClick={handleRecordClick}
+          >
+            <Icon />
+          </button>
         </div>
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    </div>
+  );
 }
+
+function capitalize(word: string) {
+  return word.charAt(0).toUpperCase() + word.substring(1);
+}
+
+type Status = "idle" | "recording" | "transcribing" | "streaming";
+
+function getInputPlaceholder(status: Status) {
+  switch (status) {
+    case "idle":
+      return "Preguntame lo que desees...";
+    case "recording":
+      return "Grabando audio...";
+    case "transcribing":
+      return "Transcribiendo audio...";
+    case "streaming":
+      return "Esperando la respuesta...";
+  }
+}
+
+interface ChatMessagesProps {
+  messages: OpenAIMessage[];
+}
+
+function ChatMessages({ messages }: ChatMessagesProps) {
+  let messagesWindow = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (messagesWindow?.current) {
+      messagesWindow.current.scrollTop = messagesWindow.current.scrollHeight;
+    }
+  }, [messages]);
+
+  return (
+    <div
+      className="p-10 w-full flex flex-col flex-1 overflow-y-auto bg-white text-gray-900 rounded-l-2xl border-4 border-white gap-5"
+      ref={(el) => (messagesWindow.current = el)}
+    >
+      {messages.map((message, idx) => (
+        <div
+          className={`flex ${
+            message.role === "user" ? "justify-end" : "justify-start"
+          } gap-5`}
+          key={idx}
+        >
+          <Image
+            className={`w-12 h-12 ${
+              message.role === "user" ? "order-last" : "order-first"
+            } rounded-[50%]`}
+            src={message.role === "user" ? user : lawyer}
+            alt={message.role === "user" ? "Usuario" : "Abogado"}
+          />
+          <div
+            className={`flex flex-col ${
+              message.role === "user" ? "order-first" : "order-last"
+            } gap-2.5`}
+          >
+            <h2 className="italic text-sm">
+              El {message.role === "user" ? "Usuario" : "Abogado virtual"} dice
+            </h2>
+            <div
+              className={`p-5 ${
+                message.role === "user" ? "bg-gray-900" : "bg-red-500"
+              } text-white whitespace-pre-wrap rounded-2xl`}
+            >
+              {message.content}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface ChatInputProps {
+  placeholder: string;
+  text: string;
+  setText: (text: string) => void;
+  sendMessage: () => void;
+  disabled: boolean;
+}
+
+function ChatInput({
+  placeholder,
+  text,
+  setText,
+  sendMessage,
+  disabled,
+}: ChatInputProps) {
+  return (
+    <input
+      className="p-2 border rounded w-full block bg-white text-gray-900"
+      type="text"
+      placeholder={placeholder}
+      value={text}
+      disabled={disabled}
+      onChange={(e) => setText(e.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      }}
+    />
+  );
+}
+
+const Mic = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+    <line x1="12" x2="12" y1="19" y2="22"></line>
+  </svg>
+);
+
+const Square = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+  </svg>
+);
