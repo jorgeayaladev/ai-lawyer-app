@@ -89,7 +89,7 @@ export default function Home() {
   return (
     <div className="p-4 flex items-center justify-center h-screen bg-gray-900 gap-4">
       {/* Sidebar */}
-      <div className="p-6 flex flex-col h-full bg-sky-500 rounded-2xl gap-6">
+      <div className="p-6 hidden md:flex flex-col h-full bg-sky-500 rounded-2xl gap-6">
         {/* New Chat */}
         <button className="p-2 flex bg-white text-gray-900 font-semibold rounded gap-2">
           <svg
