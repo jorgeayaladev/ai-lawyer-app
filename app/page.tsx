@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import useLLM, { OpenAIMessage } from "usellm";
 import lawyer from "@/img/lawyer.png";
-import user from "@/img/user.jpg";
+import user from "@/img/user.png";
 import Image from "next/image";
 
 export default function Home() {
@@ -19,19 +19,21 @@ export default function Home() {
   const llm = useLLM({ serviceUrl: "https://usellm.org/api/llm" });
 
   async function handleSend() {
-    if (!inputText) {
-      return;
-    }
+    if (!inputText) return;
+
     try {
       setStatus("streaming");
       const newHistory = [...history, { role: "user", content: inputText }];
+
       setHistory(newHistory);
       setInputText("");
+
       const { message } = await llm.chat({
         messages: newHistory,
         stream: true,
         onStream: ({ message }) => setHistory([...newHistory, message]),
       });
+
       setHistory([...newHistory, message]);
       setStatus("idle");
       handleSpeak(message.content);
@@ -48,16 +50,20 @@ export default function Home() {
         setStatus("recording");
       } else if (status === "recording") {
         setStatus("transcribing");
+
         const { audioUrl } = await llm.stopRecording();
         const { text } = await llm.transcribe({ audioUrl });
         setStatus("streaming");
+
         const newHistory = [...history, { role: "user", content: text }];
         setHistory(newHistory);
+
         const { message } = await llm.chat({
           messages: newHistory,
           stream: true,
           onStream: ({ message }) => setHistory([...newHistory, message]),
         });
+
         setHistory([...newHistory, message]);
         setStatus("idle");
         handleSpeak(message.content);
@@ -81,10 +87,64 @@ export default function Home() {
   const Icon = status === "recording" ? Square : Mic;
 
   return (
-    <div className="p-10 flex items-center justify-center h-screen bg-gray-900">
-      <div className="p-10 flex flex-col w-full h-full overflow-y-hidden bg-red-500 rounded-2xl gap-10">
+    <div className="p-4 flex items-center justify-center h-screen bg-gray-900 gap-4">
+      {/* Sidebar */}
+      <div className="p-6 flex flex-col h-full bg-sky-500 rounded-2xl gap-6">
+        {/* New Chat */}
+        <button className="p-2 flex bg-white text-gray-900 font-semibold rounded gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4.5v15m7.5-7.5h-15"
+            />
+          </svg>
+          <p>Nuevo Chat</p>
+        </button>
+
+        {/* Chats History */}
+        <div className="p-4 flex flex-col flex-1 bg-white text-white text-sm font-semibold rounded gap-4">
+          <button className="p-2 w-48 bg-sky-700 rounded">
+            <p>Chat 1</p>
+            <div></div>
+          </button>
+        </div>
+
+        {/* Options */}
+        <div className="flex items-center justify-between gap-4">
+          <button className="p-2 flex flex-1 items-center justify-left bg-white text-gray-900 font-semibold rounded gap-2">
+            <Image className="w-6 h-6 rounded-[50%]" src={user} alt="Usuario" />
+            <p>Usuario</p>
+          </button>
+          <button className="p-2 flex items-center justify-center bg-white text-gray-900 rounded">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 flex flex-col w-full h-full overflow-y-hidden bg-sky-500 rounded-2xl gap-6">
         <ChatMessages messages={history} />
-        <div className="w-full flex">
+        <div className="w-full flex gap-2">
           <ChatInput
             placeholder={getInputPlaceholder(status)}
             text={inputText}
@@ -93,13 +153,13 @@ export default function Home() {
             disabled={status !== "idle"}
           />
           <button
-            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium ml-2"
+            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium"
             onClick={handleSend}
           >
-            Send
+            Enviar
           </button>
           <button
-            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium ml-2"
+            className="p-2 border rounded bg-gray-100 hover:bg-gray-200 active:bg-gray-300 dark:bg-white dark:text-black font-medium"
             onClick={handleRecordClick}
           >
             <Icon />
@@ -110,16 +170,12 @@ export default function Home() {
   );
 }
 
-function capitalize(word: string) {
-  return word.charAt(0).toUpperCase() + word.substring(1);
-}
-
 type Status = "idle" | "recording" | "transcribing" | "streaming";
 
 function getInputPlaceholder(status: Status) {
   switch (status) {
     case "idle":
-      return "Preguntame lo que desees...";
+      return "Pregúntame lo que desees...";
     case "recording":
       return "Grabando audio...";
     case "transcribing":
@@ -144,7 +200,7 @@ function ChatMessages({ messages }: ChatMessagesProps) {
 
   return (
     <div
-      className="p-10 w-full flex flex-col flex-1 overflow-y-auto bg-white text-gray-900 rounded-l-2xl border-4 border-white gap-5"
+      className="p-6 w-full flex flex-col flex-1 overflow-y-auto bg-white text-gray-900 text-sm rounded border-4 border-white gap-5"
       ref={(el) => (messagesWindow.current = el)}
     >
       {messages.map((message, idx) => (
@@ -166,12 +222,12 @@ function ChatMessages({ messages }: ChatMessagesProps) {
               message.role === "user" ? "order-first" : "order-last"
             } gap-2.5`}
           >
-            <h2 className="italic text-sm">
+            <h2 className="italic text-xs">
               El {message.role === "user" ? "Usuario" : "Abogado virtual"} dice
             </h2>
             <div
               className={`p-5 ${
-                message.role === "user" ? "bg-gray-900" : "bg-red-500"
+                message.role === "user" ? "bg-gray-900" : "bg-sky-500"
               } text-white whitespace-pre-wrap rounded-2xl`}
             >
               {message.content}
